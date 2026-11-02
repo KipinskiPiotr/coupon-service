@@ -78,7 +78,8 @@ Base path: `/api/v1`. Coupons are identified by their code.
 { "code": "Spring", "maxUses": 100, "country": "PL" }
 ```
 
-- `code`: up to 32 characters, case-insensitive, stored and returned in upper case
+- `code`: up to 32 characters (ASCII letters, digits, `-`, `_`), case-insensitive, stored and
+  returned in upper case
 - `maxUses`: positive integer, required
 - `country`: ISO 3166-1 alpha-2 code
 
@@ -243,6 +244,13 @@ writes, as no query filters by them.
     limit can never be exceeded; zero updated rows means the limit is reached. Counting rows would
     need an explicit lock anyway and gets slower as usages grow. Reads are not blocked thanks to
     PostgreSQL's MVCC. The counter and the usage record are written in one transaction.
+18. **Coupon codes restricted to ASCII letters, digits, `-` and `_`.** Codes are typed in by users,
+    and upper-casing non-ASCII letters is locale-dependent, which could break case-insensitive
+    uniqueness.
+19. **Packages by feature** (`coupon`, `error`, later `geolocation`) instead of by layer. Everything
+    about a feature lives in one place, and classes that are not part of its API (controller, DTOs,
+    later entities and repositories) stay package-private, so the compiler enforces the boundaries.
+    A feature package is split into subpackages only when its size requires it.
 
 ## Open questions
 
