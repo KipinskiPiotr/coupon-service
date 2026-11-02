@@ -1,5 +1,7 @@
 package com.empik.couponservice.coupon;
 
+import java.net.URI;
+
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
@@ -11,19 +13,31 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
 @RequestMapping("/api/v1/coupons")
 class CouponController {
 
+    private final CouponService couponService;
+
+    CouponController(CouponService couponService) {
+        this.couponService = couponService;
+    }
+
     @PostMapping
     ResponseEntity<CouponResponse> createCoupon(@Valid @RequestBody CreateCouponRequest request) {
-        throw notImplemented();
+        Coupon coupon = couponService.createCoupon(request.code(), request.maxUses(), request.country());
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+            .path("/{code}")
+            .buildAndExpand(coupon.getCode())
+            .toUri();
+        return ResponseEntity.created(location).body(CouponResponse.from(coupon));
     }
 
     @GetMapping("/{code}")
     CouponResponse getCoupon(@PathVariable String code) {
-        throw notImplemented();
+        return CouponResponse.from(couponService.getCoupon(code));
     }
 
     @PostMapping("/{code}/usages")
