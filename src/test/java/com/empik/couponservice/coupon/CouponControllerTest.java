@@ -1,30 +1,78 @@
 package com.empik.couponservice.coupon;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
+/**
+ * Web layer only: request validation, status codes and response format. The service is mocked.
+ */
 @WebMvcTest(CouponController.class)
 class CouponControllerTest {
 
     @Autowired
     private MockMvcTester mvc;
 
+    @MockitoBean
+    private CouponService couponService;
+
     @Test
-    void createCouponIsNotImplementedYet() {
+    void createCouponReturnsCreatedCouponWithLocation() {
+        given(couponService.createCoupon("Spring", 100, "PL")).willReturn(new Coupon("SPRING", 100, "PL"));
+
         var result = post("/api/v1/coupons", """
                 { "code": "Spring", "maxUses": 100, "country": "PL" }
                 """);
 
-        assertThat(result).hasStatus(HttpStatus.NOT_IMPLEMENTED);
+        assertThat(result).hasStatus(HttpStatus.CREATED)
+            .hasHeader(HttpHeaders.LOCATION, "http://localhost/api/v1/coupons/SPRING")
+            .bodyJson()
+            .isLenientlyEqualTo("""
+                    { "code": "SPRING", "maxUses": 100, "currentUses": 0, "country": "PL" }
+                    """);
+    }
+
+    @Test
+    void createCouponReturnsConflictWhenCodeExists() {
+        given(couponService.createCoupon(anyString(), anyInt(), anyString()))
+            .willThrow(new CouponCodeAlreadyExistsException("SPRING"));
+
+        var result = post("/api/v1/coupons", """
+                { "code": "Spring", "maxUses": 100, "country": "PL" }
+                """);
+
+        assertProblem(result, HttpStatus.CONFLICT, "COUPON_CODE_ALREADY_EXISTS");
+    }
+
+    @Test
+    void getCouponReturnsCoupon() {
+        given(couponService.getCoupon("spring")).willReturn(new Coupon("SPRING", 100, "PL"));
+
+        assertThat(mvc.get().uri("/api/v1/coupons/spring")).hasStatus(HttpStatus.OK)
+            .bodyJson()
+            .extractingPath("$.code")
+            .isEqualTo("SPRING");
+    }
+
+    @Test
+    void getCouponReturnsNotFoundWhenCouponDoesNotExist() {
+        given(couponService.getCoupon("SPRING")).willThrow(new CouponNotFoundException("SPRING"));
+
+        assertProblem(mvc.get().uri("/api/v1/coupons/SPRING").exchange(), HttpStatus.NOT_FOUND, "COUPON_NOT_FOUND");
     }
 
     @Test
@@ -73,11 +121,6 @@ class CouponControllerTest {
     }
 
     @Test
-    void getCouponIsNotImplementedYet() {
-        assertThat(mvc.get().uri("/api/v1/coupons/SPRING")).hasStatus(HttpStatus.NOT_IMPLEMENTED);
-    }
-
-    @Test
     void useCouponIsNotImplementedYet() {
         var result = post("/api/v1/coupons/SPRING/usages", """
                 { "userId": "Łukasz" }
@@ -100,12 +143,21 @@ class CouponControllerTest {
         return mvc.post().uri(uri).contentType(MediaType.APPLICATION_JSON).content(json).exchange();
     }
 
-    private static void assertValidationError(MvcTestResult result, String field) {
+    private void assertValidationError(MvcTestResult result, String field) {
         assertThat(result).hasStatus(HttpStatus.BAD_REQUEST)
             .bodyJson()
             .extractingPath("$.errors[*].field")
             .asArray()
             .containsExactly(field);
+        verifyNoInteractions(couponService);
+    }
+
+    private static void assertProblem(MvcTestResult result, HttpStatus status, String code) {
+        assertThat(result).hasStatus(status)
+            .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+            .bodyJson()
+            .extractingPath("$.code")
+            .isEqualTo(code);
     }
 
 }
