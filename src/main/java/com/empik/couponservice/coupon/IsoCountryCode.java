@@ -18,10 +18,10 @@ import jakarta.validation.Payload;
 @Retention(RetentionPolicy.RUNTIME)
 @interface IsoCountryCode {
 
-	String message() default "must be an ISO 3166-1 alpha-2 country code";
+    String message() default "must be an ISO 3166-1 alpha-2 country code";
 
-	Class<?>[] groups() default {};
+    Class<?>[] groups() default {};
 
-	Class<? extends Payload>[] payload() default {};
+    Class<? extends Payload>[] payload() default {};
 
 }

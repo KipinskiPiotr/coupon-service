@@ -7,16 +7,16 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 record CreateCouponRequest(
-		@NotBlank
-		@Size(max = 32)
-		@Pattern(regexp = "[A-Za-z0-9_-]*", message = "may contain only letters, digits, '-' and '_'")
-		String code,
+        @NotBlank
+        @Size(max = 32)
+        @Pattern(regexp = "[A-Za-z0-9_-]*", message = "may contain only letters, digits, '-' and '_'")
+        String code,
 
-		@NotNull
-		@Positive
-		Integer maxUses,
+        @NotNull
+        @Positive
+        Integer maxUses,
 
-		@NotNull
-		@IsoCountryCode
-		String country) {
+        @NotNull
+        @IsoCountryCode
+        String country) {
 }

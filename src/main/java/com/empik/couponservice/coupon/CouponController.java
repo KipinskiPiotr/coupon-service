@@ -16,25 +16,25 @@ import org.springframework.web.server.ResponseStatusException;
 @RequestMapping("/api/v1/coupons")
 class CouponController {
 
-	@PostMapping
-	ResponseEntity<CouponResponse> createCoupon(@Valid @RequestBody CreateCouponRequest request) {
-		throw notImplemented();
-	}
+    @PostMapping
+    ResponseEntity<CouponResponse> createCoupon(@Valid @RequestBody CreateCouponRequest request) {
+        throw notImplemented();
+    }
 
-	@GetMapping("/{code}")
-	CouponResponse getCoupon(@PathVariable String code) {
-		throw notImplemented();
-	}
+    @GetMapping("/{code}")
+    CouponResponse getCoupon(@PathVariable String code) {
+        throw notImplemented();
+    }
 
-	@PostMapping("/{code}/usages")
-	ResponseEntity<CouponUsageResponse> useCoupon(@PathVariable String code,
-			@Valid @RequestBody UseCouponRequest request) {
-		throw notImplemented();
-	}
+    @PostMapping("/{code}/usages")
+    ResponseEntity<CouponUsageResponse> useCoupon(@PathVariable String code,
+            @Valid @RequestBody UseCouponRequest request) {
+        throw notImplemented();
+    }
 
-	// TODO: remove once all endpoints are implemented
-	private static ResponseStatusException notImplemented() {
-		return new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED);
-	}
+    // TODO: remove once all endpoints are implemented
+    private static ResponseStatusException notImplemented() {
+        return new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED);
+    }
 
 }

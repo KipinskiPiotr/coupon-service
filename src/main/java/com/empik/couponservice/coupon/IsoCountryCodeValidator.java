@@ -8,11 +8,11 @@ import jakarta.validation.ConstraintValidatorContext;
 
 class IsoCountryCodeValidator implements ConstraintValidator<IsoCountryCode, String> {
 
-	private static final Set<String> ISO_COUNTRIES = Locale.getISOCountries(Locale.IsoCountryCode.PART1_ALPHA2);
+    private static final Set<String> ISO_COUNTRIES = Locale.getISOCountries(Locale.IsoCountryCode.PART1_ALPHA2);
 
-	@Override
-	public boolean isValid(String value, ConstraintValidatorContext context) {
-		return value == null || ISO_COUNTRIES.contains(value);
-	}
+    @Override
+    public boolean isValid(String value, ConstraintValidatorContext context) {
+        return value == null || ISO_COUNTRIES.contains(value);
+    }
 
 }
