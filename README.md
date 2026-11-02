@@ -112,7 +112,7 @@ The code is case-insensitive.
 { "userId": "user-123" }
 ```
 
-- `userId`: any identifier up to 64 characters, required
+- `userId`: any identifier up to 36 characters (fits a UUID), required
 
 The client's country is resolved from the IP address of the request.
 
@@ -174,7 +174,7 @@ distinguishes errors that share the same HTTP status:
 |-------------|---------------|--------------------------------------------|
 | `id`        | `bigint`      | primary key, generated always as identity  |
 | `coupon_id` | `bigint`      | not null, foreign key to `coupon(id)`      |
-| `user_id`   | `varchar(64)` | not null                                   |
+| `user_id`   | `varchar(36)` | not null                                   |
 | `country`   | `varchar(2)`  | not null, country the coupon was used from |
 | `used_at`   | `timestamptz` | not null, default `now()`                  |
 
