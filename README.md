@@ -168,6 +168,9 @@ distinguishes errors that share the same HTTP status:
 | `country`      | `varchar(2)`  | not null, `check (country ~ '^[A-Z]{2}$')`          |
 | `created_at`   | `timestamptz` | not null, default `now()`                           |
 
+The `country` check validates the format only; membership in ISO 3166-1 is validated by the
+application.
+
 ### `coupon_usage`
 
 | Column      | Type          | Constraints                                |
@@ -180,6 +183,18 @@ distinguishes errors that share the same HTTP status:
 
 `unique (coupon_id, user_id)` enforces one usage per user. Its index starts with `coupon_id`, so it
 also serves lookups of usages by coupon; no separate index on the foreign key is needed.
+
+### Indexes
+
+All queries go through the indexes created by the primary key and unique constraints:
+
+| Index                         | Used for                                                     |
+|-------------------------------|--------------------------------------------------------------|
+| `uq_coupon_code`              | every API operation (coupons are looked up by code)          |
+| `uq_coupon_usage_coupon_user` | the "already used" check, usages by coupon, foreign key checks |
+
+No additional indexes are needed. Indexes on `country` or `user_id` alone would only slow down
+writes, as no query filters by them.
 
 ## Design decisions
 
