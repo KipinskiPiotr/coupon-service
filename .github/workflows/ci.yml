@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -25,3 +25,15 @@ jobs:
           cache: maven
 
       - run: ./mvnw -B verify
+
+  smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - run: docker compose up --build -d
+
+      - run: curl --fail --retry 30 --retry-delay 2 --retry-all-errors http://localhost:8080/actuator/health
+
+      - if: failure()
+        run: docker compose logs
