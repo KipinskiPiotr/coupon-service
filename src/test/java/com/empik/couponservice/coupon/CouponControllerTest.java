@@ -23,6 +23,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import com.empik.couponservice.error.ApiException;
+import com.empik.couponservice.geolocation.GeolocationUnavailableException;
 
 /**
  * Web layer only: request validation, status codes and response format. The service is mocked.
@@ -177,7 +178,9 @@ class CouponControllerTest {
                 Arguments.of(new CountryNotAllowedException("SPRING", "DE"), HttpStatus.FORBIDDEN,
                         "COUNTRY_NOT_ALLOWED"),
                 Arguments.of(new CouponUsageLimitReachedException("SPRING"), HttpStatus.CONFLICT,
-                        "COUPON_USAGE_LIMIT_REACHED"));
+                        "COUPON_USAGE_LIMIT_REACHED"),
+                Arguments.of(new GeolocationUnavailableException("The geolocation service is unavailable"),
+                        HttpStatus.SERVICE_UNAVAILABLE, "GEOLOCATION_UNAVAILABLE"));
     }
 
     @ParameterizedTest

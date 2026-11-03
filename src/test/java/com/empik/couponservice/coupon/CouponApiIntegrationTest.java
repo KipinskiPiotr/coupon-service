@@ -18,6 +18,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import com.empik.couponservice.TestcontainersConfiguration;
 import com.empik.couponservice.geolocation.CountryResolver;
+import com.empik.couponservice.geolocation.GeolocationUnavailableException;
 
 /**
  * End-to-end tests of the coupon API against a real PostgreSQL database.
@@ -78,6 +79,16 @@ class CouponApiIntegrationTest {
         clientConnectsFrom("DE");
 
         assertProblem(useCoupon("SPRING", "Łukasz"), HttpStatus.FORBIDDEN, "COUNTRY_NOT_ALLOWED");
+        assertCurrentUses("SPRING", 0);
+    }
+
+    @Test
+    void couponCannotBeUsedWhenCountryCannotBeDetermined() {
+        createCoupon("SPRING", 10, "PL");
+        given(countryResolver.resolveCountry(anyString()))
+            .willThrow(new GeolocationUnavailableException("The geolocation service is unavailable"));
+
+        assertProblem(useCoupon("SPRING", "Łukasz"), HttpStatus.SERVICE_UNAVAILABLE, "GEOLOCATION_UNAVAILABLE");
         assertCurrentUses("SPRING", 0);
     }
 
