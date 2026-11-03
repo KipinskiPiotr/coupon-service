@@ -50,7 +50,8 @@ curl localhost:8080/api/v1/coupons/spring
 
 The examples use ASCII only: on Windows, shells may not send command-line arguments as UTF-8.
 
-API documentation (Swagger UI) is available at `http://localhost:8080/swagger-ui.html`.
+The same works in Swagger UI at `http://localhost:8080/swagger-ui.html`: the usage endpoint has an
+`X-Forwarded-For` field. The OpenAPI document is available at `/v3/api-docs`.
 
 ## Development
 
@@ -183,13 +184,16 @@ distinguishes errors that share the same HTTP status:
 
 ```json
 {
-  "type": "about:blank",
   "title": "Conflict",
   "status": 409,
   "detail": "Coupon SPRING has reached its usage limit",
+  "instance": "/api/v1/coupons/SPRING/usages",
   "code": "COUPON_USAGE_LIMIT_REACHED"
 }
 ```
+
+Validation errors (`VALIDATION_FAILED`) also list the invalid fields:
+`"errors": [{ "field": "maxUses", "message": "must be greater than 0" }]`.
 
 ### Assumptions
 
@@ -370,3 +374,11 @@ Under much higher load, the next steps would be:
     Tomcat's `RemoteIpValve`). Requests from internal addresses, such as a load balancer, may forward
     the client's IP; anyone else gets their connection address used, so clients cannot spoof their
     country.
+27. **OpenAPI document generated from the code** (springdoc), so it cannot drift from the
+    implementation. Annotations add only what the code does not express: statuses and error codes.
+    The Problem Details schema is attached to every error response in one place
+    (`OpenApiConfiguration`) instead of being repeated on each endpoint.
+28. **Errors identified by a `code` property rather than custom `type` URIs.** Responses use the
+    RFC 9457 default type, `about:blank` (omitted from the JSON, which means the same), with the
+    HTTP status as `title`. Custom type URIs would need a stable address documenting each error,
+    which this project does not have, while a plain code is simpler for clients to handle.

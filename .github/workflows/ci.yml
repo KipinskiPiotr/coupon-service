@@ -35,5 +35,8 @@ jobs:
 
       - run: curl --fail --retry 30 --retry-delay 2 --retry-all-errors http://localhost:8080/actuator/health
 
+      # The OpenAPI document is built on first request, so this checks the customizations work
+      - run: curl --fail --silent --show-error --output /dev/null http://localhost:8080/v3/api-docs
+
       - if: failure()
         run: docker compose logs
