@@ -3,6 +3,7 @@ package com.empik.couponservice.error;
 import java.util.List;
 
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +27,17 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ErrorCode errorCode = ex.errorCode();
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(errorCode.status(), ex.getMessage());
         problem.setProperty(CODE_PROPERTY, errorCode.name());
+        return ResponseEntity.of(problem).build();
+    }
+
+    /**
+     * Keeps the error format for unexpected errors too. The cause is logged, not exposed to the client.
+     */
+    @ExceptionHandler(Exception.class)
+    ResponseEntity<ProblemDetail> handleUnexpectedException(Exception ex) {
+        logger.error("Unexpected error", ex);
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR,
+                "An unexpected error occurred");
         return ResponseEntity.of(problem).build();
     }
 
