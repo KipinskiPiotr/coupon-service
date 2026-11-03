@@ -132,6 +132,13 @@ The client's country is resolved from the IP address of the request.
 Unlike coupons, a usage has no `Location` header: it is a record in the coupon's usage log, not a
 resource with its own address, and exposing it would require leaking its technical ID.
 
+When several errors apply, the first one in this order is returned:
+
+1. `COUPON_NOT_FOUND`
+2. `COUPON_ALREADY_USED`: a fact about the user that does not depend on where they connect from
+3. `COUNTRY_NOT_ALLOWED`
+4. `COUPON_USAGE_LIMIT_REACHED`
+
 ### Errors
 
 Errors follow [RFC 9457 Problem Details](https://www.rfc-editor.org/rfc/rfc9457). The `code` field
@@ -251,11 +258,33 @@ writes, as no query filters by them.
     about a feature lives in one place, and classes that are not part of its API (controller, DTOs,
     later entities and repositories) stay package-private, so the compiler enforces the boundaries.
     A feature package is split into subpackages only when its size requires it.
+20. **Coupon usage: read-only checks first, then a short transaction.**
+
+    | Step | Where | Fails with |
+    |------|-------|------------|
+    | 1. Find the coupon by code | read | `COUPON_NOT_FOUND` |
+    | 2. Check whether the user has already used it | read | `COUPON_ALREADY_USED` |
+    | 3. Resolve the client's country and compare it | read | `COUNTRY_NOT_ALLOWED` |
+    | 4. Check `current_uses < max_uses` | read | `COUPON_USAGE_LIMIT_REACHED` |
+    | 5. Insert the usage record | transaction | `COUPON_ALREADY_USED` (unique constraint) |
+    | 6. Conditionally increment the counter | transaction | `COUPON_USAGE_LIMIT_REACHED` (0 rows updated) |
+
+    Steps 1–4 are an optimization and define the error precedence: most rejected requests (e.g. for an
+    exhausted coupon) are answered without any write or lock. Steps 5–6 guarantee correctness: they
+    catch the races between the reads and the transaction (the same user sending two requests at once,
+    the coupon running out meanwhile), and removing steps 1–4 would not change the outcome. The country
+    is resolved outside the transaction, so no database connection is held during the external call.
+    Inserting before updating keeps the row lock on the coupon, the contention point, as short as
+    possible, and every transaction takes its locks in the same order, which rules out deadlocks.
+    Exhausted coupons are not cached: the reads are cheap, and a cache would break as soon as limits
+    could be raised.
+21. **Country resolution behind the `CountryResolver` interface.** The coupon logic does not know
+    where the country comes from; until geolocation is implemented, a placeholder resolves every
+    client to `PL`.
 
 ## Open questions
 
 <!-- To be decided and moved to "Design decisions" -->
 
-- Order of operations in the usage transaction and which error wins when several apply
 - Geolocation provider, timeout, behavior when it is unavailable
 - Behavior when the client IP cannot be geolocated (e.g. a private address)
