@@ -378,3 +378,7 @@ Under much higher load, the next steps would be:
     implementation. Annotations add only what the code does not express: statuses and error codes.
     The Problem Details schema is attached to every error response in one place
     (`OpenApiConfiguration`) instead of being repeated on each endpoint.
+28. **Errors identified by a `code` property rather than custom `type` URIs.** Responses use the
+    RFC 9457 default type, `about:blank` (omitted from the JSON, which means the same), with the
+    HTTP status as `title`. Custom type URIs would need a stable address documenting each error,
+    which this project does not have, while a plain code is simpler for clients to handle.
