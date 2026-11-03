@@ -108,7 +108,7 @@ class IpapiCountryResolverTest {
     }
 
     private static IpapiCountryResolver resolverFor(URI baseUrl) {
-        return new IpapiCountryResolver(new GeolocationProperties(baseUrl, Duration.ofSeconds(1), READ_TIMEOUT));
+        return new IpapiCountryResolver(new GeolocationProperties(baseUrl, Duration.ofSeconds(1), READ_TIMEOUT, null));
     }
 
     private static void respond(HttpExchange exchange, int status, String body) throws IOException {

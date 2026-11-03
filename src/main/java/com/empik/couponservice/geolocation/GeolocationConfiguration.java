@@ -10,7 +10,7 @@ class GeolocationConfiguration {
 
     @Bean
     CountryResolver countryResolver(GeolocationProperties properties) {
-        return new IpapiCountryResolver(properties);
+        return new CachingCountryResolver(new IpapiCountryResolver(properties), properties.cache());
     }
 
 }
