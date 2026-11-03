@@ -6,8 +6,12 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -17,6 +21,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
+
+import com.empik.couponservice.error.ApiException;
 
 /**
  * Web layer only: request validation, status codes and response format. The service is mocked.
@@ -121,12 +127,42 @@ class CouponControllerTest {
     }
 
     @Test
-    void useCouponIsNotImplementedYet() {
+    void useCouponPassesConnectionIpAndReturnsCreatedUsage() {
+        given(couponService.useCoupon("spring", "Łukasz", "127.0.0.1"))
+            .willReturn(new CouponUsage(1L, "Łukasz", "PL"));
+
+        var result = post("/api/v1/coupons/spring/usages", """
+                { "userId": "Łukasz" }
+                """);
+
+        assertThat(result).hasStatus(HttpStatus.CREATED)
+            .doesNotContainHeader(HttpHeaders.LOCATION)
+            .bodyJson()
+            .isLenientlyEqualTo("""
+                    { "code": "SPRING", "userId": "Łukasz" }
+                    """);
+    }
+
+    @ParameterizedTest
+    @MethodSource("usageErrors")
+    void useCouponMapsBusinessErrorsToProblemDetails(ApiException exception, HttpStatus status, String code) {
+        given(couponService.useCoupon(anyString(), anyString(), anyString())).willThrow(exception);
+
         var result = post("/api/v1/coupons/SPRING/usages", """
                 { "userId": "Łukasz" }
                 """);
 
-        assertThat(result).hasStatus(HttpStatus.NOT_IMPLEMENTED);
+        assertProblem(result, status, code);
+    }
+
+    static Stream<Arguments> usageErrors() {
+        return Stream.of(
+                Arguments.of(new CouponNotFoundException("SPRING"), HttpStatus.NOT_FOUND, "COUPON_NOT_FOUND"),
+                Arguments.of(new CouponAlreadyUsedException("SPRING"), HttpStatus.CONFLICT, "COUPON_ALREADY_USED"),
+                Arguments.of(new CountryNotAllowedException("SPRING", "DE"), HttpStatus.FORBIDDEN,
+                        "COUNTRY_NOT_ALLOWED"),
+                Arguments.of(new CouponUsageLimitReachedException("SPRING"), HttpStatus.CONFLICT,
+                        "COUPON_USAGE_LIMIT_REACHED"));
     }
 
     @ParameterizedTest

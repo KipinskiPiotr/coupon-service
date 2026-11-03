@@ -1,6 +1,7 @@
 package com.empik.couponservice.coupon;
 
 import java.time.Instant;
+import java.util.Locale;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -45,6 +46,18 @@ class Coupon {
         this.maxUses = maxUses;
         this.country = country;
         this.currentUses = 0;
+    }
+
+    /**
+     * Codes are case-insensitive and stored in upper case. {@link Locale#ROOT} makes the result
+     * independent of the server's locale.
+     */
+    static String normalizeCode(String code) {
+        return code.toUpperCase(Locale.ROOT);
+    }
+
+    boolean hasReachedLimit() {
+        return currentUses >= maxUses;
     }
 
     Long getId() {
