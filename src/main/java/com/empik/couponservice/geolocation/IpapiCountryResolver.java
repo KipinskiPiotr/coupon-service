@@ -1,11 +1,10 @@
 package com.empik.couponservice.geolocation;
 
 import java.net.InetAddress;
-import java.net.http.HttpClient;
 import java.util.regex.Pattern;
 
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.client.JdkClientHttpRequestFactory;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
@@ -20,9 +19,8 @@ class IpapiCountryResolver implements CountryResolver {
     private final RestClient restClient;
 
     IpapiCountryResolver(GeolocationProperties properties) {
-        // The JDK HttpClient has no timeouts by default: a hanging provider would block request threads
-        HttpClient httpClient = HttpClient.newBuilder().connectTimeout(properties.connectTimeout()).build();
-        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(properties.connectTimeout());
         requestFactory.setReadTimeout(properties.readTimeout());
 
         this.restClient = RestClient.builder()
