@@ -82,6 +82,21 @@ class CouponControllerTest {
     }
 
     @Test
+    void unexpectedErrorReturnsProblemDetailWithoutInternals() {
+        given(couponService.getCoupon("SPRING")).willThrow(new IllegalStateException("connection refused"));
+
+        var result = mvc.get().uri("/api/v1/coupons/SPRING").exchange();
+
+        assertThat(result).hasStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+            .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+            .bodyJson()
+            .isLenientlyEqualTo("""
+                    { "status": 500, "detail": "An unexpected error occurred" }
+                    """);
+        assertThat(result).bodyText().doesNotContain("connection refused");
+    }
+
+    @Test
     void createCouponRejectsMissingFields() {
         var result = post("/api/v1/coupons", "{}");
 
