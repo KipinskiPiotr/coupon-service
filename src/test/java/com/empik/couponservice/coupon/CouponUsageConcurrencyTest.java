@@ -1,6 +1,8 @@
 package com.empik.couponservice.coupon;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
 
 import java.util.List;
 import java.util.Map;
@@ -17,9 +19,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.empik.couponservice.TestcontainersConfiguration;
 import com.empik.couponservice.error.ApiException;
+import com.empik.couponservice.geolocation.CountryResolver;
 
 /**
  * Fires many usages of the same coupon at once. Most of them pass the read-only checks together, so
@@ -41,10 +45,14 @@ class CouponUsageConcurrencyTest {
     @Autowired
     private CouponUsageRepository couponUsageRepository;
 
+    @MockitoBean
+    private CountryResolver countryResolver;
+
     @BeforeEach
-    void cleanDatabase() {
+    void setUp() {
         couponUsageRepository.deleteAll();
         couponRepository.deleteAll();
+        given(countryResolver.resolveCountry(anyString())).willReturn("PL");
     }
 
     @Test

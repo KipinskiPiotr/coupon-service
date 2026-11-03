@@ -28,6 +28,30 @@ If port `8080` or `5433` is already in use, override it with `APP_PORT` or `DB_H
 APP_PORT=8081 docker compose up --build
 ```
 
+### Trying it out
+
+The client's country is resolved from its IP address. Requests sent from your machine reach the
+application from a private address (`127.0.0.1` or the Docker network), which has no country, so
+coupon usage would fail with `503 GEOLOCATION_UNAVAILABLE`. Local addresses are trusted as proxies,
+so you can simulate a client by sending its public IP in `X-Forwarded-For`:
+
+```bash
+curl -X POST localhost:8080/api/v1/coupons \
+  -H "Content-Type: application/json" \
+  -d '{ "code": "Spring", "maxUses": 2, "country": "PL" }'
+
+# 83.0.0.1 is a Polish IP address
+curl -X POST localhost:8080/api/v1/coupons/spring/usages \
+  -H "Content-Type: application/json" -H "X-Forwarded-For: 83.0.0.1" \
+  -d '{ "userId": "lukasz" }'
+
+curl localhost:8080/api/v1/coupons/spring
+```
+
+The examples use ASCII only: on Windows, shells may not send command-line arguments as UTF-8.
+
+API documentation (Swagger UI) is available at `http://localhost:8080/swagger-ui.html`.
+
 ## Development
 
 Requirements: Docker, JDK 25 and an IDE that supports Java 25.
@@ -57,6 +81,17 @@ If the full stack is running, stop the application container first to free port 
 
 Inside Docker Compose the application connects to `db:5432`; the defaults above apply when it runs
 on the host.
+
+Geolocation is configured in `application.properties`; any value can be overridden with an
+environment variable (e.g. `GEOLOCATION_READTIMEOUT=10s`):
+
+| Property                         | Default             | Description                              |
+|----------------------------------|---------------------|------------------------------------------|
+| `geolocation.base-url`           | `https://ipapi.co`  | Geolocation service                      |
+| `geolocation.connect-timeout`    | `2s`                | Maximum time to connect to the service   |
+| `geolocation.read-timeout`       | `5s`                | Maximum time to wait for its response    |
+| `geolocation.cache.ttl`          | `1h`                | How long a resolved country is cached    |
+| `geolocation.cache.maximum-size` | `10000`             | Maximum number of cached IP addresses    |
 
 ## Running tests
 
@@ -124,6 +159,7 @@ The client's country is resolved from the IP address of the request.
 | `403 Forbidden` | The coupon is not available in the client's country (`COUNTRY_NOT_ALLOWED`) |
 | `404 Not Found` | The coupon does not exist (`COUPON_NOT_FOUND`) |
 | `409 Conflict` | The usage limit has been reached (`COUPON_USAGE_LIMIT_REACHED`) or the user has already used the coupon (`COUPON_ALREADY_USED`) |
+| `503 Service Unavailable` | The client's country cannot be determined (`GEOLOCATION_UNAVAILABLE`) |
 
 ```json
 { "code": "SPRING", "userId": "user-123", "usedAt": "2026-11-02T12:05:00Z" }
@@ -136,8 +172,9 @@ When several errors apply, the first one in this order is returned:
 
 1. `COUPON_NOT_FOUND`
 2. `COUPON_ALREADY_USED`: a fact about the user that does not depend on where they connect from
-3. `COUNTRY_NOT_ALLOWED`
-4. `COUPON_USAGE_LIMIT_REACHED`
+3. `GEOLOCATION_UNAVAILABLE`
+4. `COUNTRY_NOT_ALLOWED`
+5. `COUPON_USAGE_LIMIT_REACHED`
 
 ### Errors
 
@@ -254,9 +291,9 @@ writes, as no query filters by them.
 18. **Coupon codes restricted to ASCII letters, digits, `-` and `_`.** Codes are typed in by users,
     and upper-casing non-ASCII letters is locale-dependent, which could break case-insensitive
     uniqueness.
-19. **Packages by feature** (`coupon`, `error`, later `geolocation`) instead of by layer. Everything
+19. **Packages by feature** (`coupon`, `geolocation`, `error`) instead of by layer. Everything
     about a feature lives in one place, and classes that are not part of its API (controller, DTOs,
-    later entities and repositories) stay package-private, so the compiler enforces the boundaries.
+    entities, repositories) stay package-private, so the compiler enforces the boundaries.
     A feature package is split into subpackages only when its size requires it.
 20. **Coupon usage: read-only checks first, then a short transaction.**
 
@@ -264,7 +301,7 @@ writes, as no query filters by them.
     |------|-------|------------|
     | 1. Find the coupon by code | read | `COUPON_NOT_FOUND` |
     | 2. Check whether the user has already used it | read | `COUPON_ALREADY_USED` |
-    | 3. Resolve the client's country and compare it | read | `COUNTRY_NOT_ALLOWED` |
+    | 3. Resolve the client's country and compare it | read | `GEOLOCATION_UNAVAILABLE`, `COUNTRY_NOT_ALLOWED` |
     | 4. Check `current_uses < max_uses` | read | `COUPON_USAGE_LIMIT_REACHED` |
     | 5. Insert the usage record | transaction | `COUPON_ALREADY_USED` (unique constraint) |
     | 6. Conditionally increment the counter | transaction | `COUPON_USAGE_LIMIT_REACHED` (0 rows updated) |
@@ -279,12 +316,25 @@ writes, as no query filters by them.
     Exhausted coupons are not cached: the reads are cheap, and a cache would break as soon as limits
     could be raised.
 21. **Country resolution behind the `CountryResolver` interface.** The coupon logic does not know
-    where the country comes from; until geolocation is implemented, a placeholder resolves every
-    client to `PL`.
-
-## Open questions
-
-<!-- To be decided and moved to "Design decisions" -->
-
-- Geolocation provider, timeout, behavior when it is unavailable
-- Behavior when the client IP cannot be geolocated (e.g. a private address)
+    where the country comes from, and tests can simulate any country.
+22. **[ipapi.co](https://ipapi.co) as the geolocation provider.** No signup or API key, so the
+    project runs without configuration; HTTPS, which matters as IP addresses are personal data; and
+    the `/{ip}/country/` endpoint returns just the country code. The free tier allows about 1,000
+    requests a day, which the cache stretches. Switching providers means writing one new
+    `CountryResolver` implementation.
+23. **Fail closed when the country cannot be determined.** Provider errors, timeouts, rate limiting,
+    unknown countries and non-public client addresses all reject the usage with
+    `503 GEOLOCATION_UNAVAILABLE`. Letting the usage through would allow bypassing the country
+    restriction by causing a geolocation failure. Private addresses are rejected without calling the
+    provider; in production they only appear when the proxy configuration is wrong.
+24. **Explicit timeouts for the provider: 2 s to connect, 5 s for the response.** Without them a
+    hanging provider would block request threads indefinitely and take the whole service down with
+    it. The defaults are generous on purpose, so the project works on slow connections, and both are
+    configurable.
+25. **Cache as an explicit decorator** (`CachingCountryResolver`, Caffeine) rather than
+    `@Cacheable`. It makes visible that only successful lookups are cached, and it is tested without
+    a Spring context. Entries expire after 1 hour, as IP addresses get reassigned.
+26. **`X-Forwarded-For` honored only from trusted proxies** (`server.forward-headers-strategy=native`,
+    Tomcat's `RemoteIpValve`). Requests from internal addresses, such as a load balancer, may forward
+    the client's IP; anyone else gets their connection address used, so clients cannot spoof their
+    country.
