@@ -57,7 +57,6 @@ class OpenApiConfiguration {
             .addProperty("field", new StringSchema().example("maxUses"))
             .addProperty("message", new StringSchema().example("must be greater than 0"));
         return new ObjectSchema()
-            .addProperty("type", new StringSchema().example("about:blank"))
             .addProperty("title", new StringSchema().example("Conflict"))
             .addProperty("status", new IntegerSchema().example(409))
             .addProperty("detail", new StringSchema().example("Coupon SPRING has reached its usage limit"))

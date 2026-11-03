@@ -184,13 +184,16 @@ distinguishes errors that share the same HTTP status:
 
 ```json
 {
-  "type": "about:blank",
   "title": "Conflict",
   "status": 409,
   "detail": "Coupon SPRING has reached its usage limit",
+  "instance": "/api/v1/coupons/SPRING/usages",
   "code": "COUPON_USAGE_LIMIT_REACHED"
 }
 ```
+
+Validation errors (`VALIDATION_FAILED`) also list the invalid fields:
+`"errors": [{ "field": "maxUses", "message": "must be greater than 0" }]`.
 
 ### Assumptions
 
