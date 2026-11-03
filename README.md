@@ -241,6 +241,38 @@ All queries go through the indexes created by the primary key and unique constra
 No additional indexes are needed. Indexes on `country` or `user_id` alone would only slow down
 writes, as no query filters by them.
 
+## Scalability
+
+The application is stateless, so it scales horizontally: any number of instances can run behind a
+load balancer, sharing one database.
+
+- **Correctness does not depend on the number of instances.** Usage limits and one use per user are
+  enforced by the database (an atomic conditional update and unique constraints, see decisions 17
+  and 20), not by in-memory locks, so they hold across instances without distributed locking.
+  `CouponUsageConcurrencyTest` checks this with 100 concurrent requests for a coupon with a limit of 10.
+- **Contention is limited to a single coupon.** Only usages of the same coupon wait for each other,
+  and only for a short transaction (one insert and one update); the external geolocation call happens
+  before it starts. Usages of different coupons do not block each other, and reads are never blocked.
+- **Most rejected requests do not write.** Requests for an exhausted coupon, a repeated usage or a
+  wrong country are answered from reads, so a popular coupon running out does not turn into a
+  stream of failing transactions.
+- **The geolocation cache is per instance.** Each instance resolves a given IP address at most once
+  per hour, and concurrent requests for the same address share one lookup. With several instances
+  an address may be resolved once per instance, which is cheaper than running a shared cache.
+- **Database connections are short-lived.** No connection is held during the geolocation call, so
+  the default pool of 10 connections per instance goes a long way. The total across instances must
+  stay below PostgreSQL's `max_connections`.
+
+Under much higher load, the next steps would be:
+
+- **A local GeoIP database** (e.g. MaxMind GeoLite2) instead of an HTTP API. The free ipapi.co tier
+  (about 1,000 requests a day) is the first bottleneck; a local database has no rate limit, no
+  network call and no external dependency.
+- **A connection pooler** (PgBouncer) once the number of instances makes `max_connections` a limit.
+- **Read replicas** for `GET /coupons/{code}`, as coupons are read far more often than created.
+- **Splitting the counter of a very hot coupon** into several rows incremented independently, if the
+  row lock on a single coupon ever became the bottleneck.
+
 ## Design decisions
 
 1. **PostgreSQL as the database.** The core of the task is enforcing business rules under concurrent
