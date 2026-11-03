@@ -2,6 +2,7 @@ package com.empik.couponservice.coupon;
 
 import java.net.URI;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
@@ -12,7 +13,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
@@ -42,13 +42,10 @@ class CouponController {
 
     @PostMapping("/{code}/usages")
     ResponseEntity<CouponUsageResponse> useCoupon(@PathVariable String code,
-            @Valid @RequestBody UseCouponRequest request) {
-        throw notImplemented();
-    }
-
-    // TODO: remove once all endpoints are implemented
-    private static ResponseStatusException notImplemented() {
-        return new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED);
+            @Valid @RequestBody UseCouponRequest request, HttpServletRequest httpRequest) {
+        CouponUsage usage = couponService.useCoupon(code, request.userId(), httpRequest.getRemoteAddr());
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(CouponUsageResponse.from(Coupon.normalizeCode(code), usage));
     }
 
 }
