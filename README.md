@@ -391,3 +391,10 @@ Under much higher load, the next steps would be:
 - **Pull requests with squash merge.** CI runs on every pull request and on `main` with two parallel
   jobs: `test` (all tests) and `smoke-test` (starts the full Docker Compose stack and checks the
   health endpoint and the OpenAPI document).
+
+## How this was built
+
+I built this project together with [Claude Code](https://claude.com/claude-code). I set up the
+project, Docker Compose and CI, and worked out the API, the schema and the design decisions in
+discussions with Claude, making the final call on each. Most of the application code and tests
+were then written by Claude in small pull requests, which I reviewed, tested locally and merged.
